@@ -1,0 +1,17 @@
+{
+    "manifest_version": 3,
+    "name": "Loops to Aws Template",
+    "version": "1.0",
+    "description": "Extract specific HTML and send to API endpoint.",
+    "permissions": [
+        "activeTab",
+        "scripting",
+        "<all_urls>"
+    ],
+    "action": {
+        "default_popup": "popup.html"
+    },
+    "host_permissions": [
+        "<all_urls>"
+    ]
+}
