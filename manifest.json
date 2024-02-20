@@ -4,13 +4,23 @@
     "version": "1.0",
     "description": "Extract specific HTML and send to API endpoint.",
     "permissions": [
+        "tabs",
         "activeTab",
-        "scripting",
-        "<all_urls>"
+        "scripting"
     ],
     "action": {
         "default_popup": "popup.html"
     },
+    "background": {
+        "service_worker": "background.js"
+    },
+    "content_scripts": [
+        {
+            "matches": ["<all_urls>"],
+            "js": ["content.js"],
+            "run_at": "document_start"
+        }
+    ],
     "host_permissions": [
         "<all_urls>"
     ]
