@@ -21,6 +21,24 @@ chrome.runtime.onMessage.addListener(
     }
 );
 
+const parseContent = (content) => {
+    if (!content) return "";
+    // Parse unicode escaped characters
+    let retVal = content.replace(/"/g, '\\"').replace(/(?:\r\n|\r|\n)/g, '\\n');
+    retVal = retVal.replace(/\\u([\d\w]{4})/gi, function (match, grp) {
+      return String.fromCharCode(parseInt(grp, 16));
+    });
+    retVal = retVal.replace(/\\n/g, '\n');
+    retVal = retVal.replace(/\\t/g, '\t');
+    retVal = retVal.replace(/\\r/g, '\r');
+    retVal = retVal.replace(/\\b/g, '\b');
+    retVal = retVal.replace(/\\f/g, '\f');
+    retVal = retVal.replace(/\\'/g, '\'');
+    retVal = retVal.replace(/\\"/g, '\"');
+    retVal = retVal.replace(/\\\\/g, '\\');
+    return retVal;
+  };
+
 function refreshAll() {
     fetch('https://apscheduler.us.admin.dora.run/email/list_templates', {
         method: 'GET'
@@ -106,6 +124,7 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
     // 使用 DOMParser 解析 HTML 字符串
     var parser = new DOMParser();
     var doc = parser.parseFromString(htmlContent, 'text/html');
+    var shouldRefresh = false;
 
     // 去除loops的底部logo
     const tdElements = doc.querySelectorAll('td');
@@ -114,6 +133,7 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
         if (td.getAttribute('class')==='powered-by-image' || td.getAttribute('class')==='powered-by-image-dark') {
             // 如果包含，则移除这个 <td> 元素
             console.log('remove loops logo');
+            shouldRefresh = true;
             td.remove();
         }
     });
@@ -125,6 +145,7 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
         if (span.getAttribute('data-buffer')) {
             // 如果包含，则移除这个 <span> 元素的data-buffer属性
             console.log('remove data-buffer');
+            shouldRefresh = true;
             span.removeAttribute('data-buffer');
         }
     });
@@ -136,11 +157,15 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
         if (a.getAttribute('href')==='{unsubscribe_link}') {
             // 如果包含，则修改这个 <a> 元素
             console.log('alter unsub link');
+            shouldRefresh = true;
             a.setAttribute('href', '{{unsub}}');
         }
-        // 对未添加点击率追踪的固定链接添加点击率追踪
-        if (a.getAttribute('href') && a.getAttribute('href').includes('http') && !a.getAttribute('href').includes('email/track/click')) {
+        // 对未添加点击率追踪的固定http链接添加点击率追踪, 不替换包含模板变量的链接
+        if (a.getAttribute('href') && 
+        a.getAttribute('href').startsWith('http') &&
+        !a.getAttribute('href').includes('{{')){
             console.log('track click: ' + a.getAttribute('href'));
+            shouldRefresh = true;
             var newHref = "https://api-us.dora.run/email/track/click?project=1&env=online&template_name={{templateName}}&username={{username}}&target_url=" + encodeURIComponent(a.getAttribute('href'));
             a.setAttribute('href', newHref);
         }
@@ -161,24 +186,29 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
         const body = doc.querySelector('body');
         body.appendChild(img);
         console.log('add track open');
+        shouldRefresh = true;
     }
 
     // 将更新后的 HTML 内容转换回字符串
     var updatedHtmlContent = doc.body.innerHTML;
-
-    return fetch('https://apscheduler.us.admin.dora.run/email/store_email_template', {
+    if (shouldRefresh) {
+        return fetch('https://apscheduler.us.admin.dora.run/email/store_email_template', {
     
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ template_content: updatedHtmlContent, template_name: template_name, subject: subjectValue, preview_text: previewTextValue})
-    })
-    .then(response => response.json()) // 确保处理响应数据
-    .then(data => {
-        console.log('Success:', data);
-    })
-    .catch((error) => {
-        console.error('Error:', error);
-    });
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ template_content: parseContent(updatedHtmlContent), template_name: parseContent(template_name), subject: parseContent(subjectValue), preview_text: parseContent(previewTextValue)})
+        })
+        .then(response => response.json()) // 确保处理响应数据
+        .then(data => {
+            console.log('Success:', data);
+        })
+        .catch((error) => {
+            console.error('Error:', error);
+        });
+    } else {
+        console.log('No changes detected');
+        return Promise.resolve();
+    }
 }
