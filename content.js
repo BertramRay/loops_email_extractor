@@ -138,12 +138,10 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
         }
     });
 
-    // 去除semplates的span元素的data-buffer属性
+    // remove data-buffer
     const spanElements = doc.querySelectorAll('span');
     spanElements.forEach(span => {
-        // 检查当前 <span> 元素内是否包含特定的属性
         if (span.getAttribute('data-buffer')) {
-            // 如果包含，则移除这个 <span> 元素的data-buffer属性
             console.log('remove data-buffer');
             shouldRefresh = true;
             span.removeAttribute('data-buffer');
@@ -190,7 +188,7 @@ function refreshHtml(template_name, subjectValue, previewTextValue, htmlContent)
     }
 
     // 将更新后的 HTML 内容转换回字符串
-    var updatedHtmlContent = doc.body.innerHTML;
+    var updatedHtmlContent = doc.documentElement.outerHTML;
     if (shouldRefresh) {
         return fetch('https://apscheduler.us.admin.dora.run/email/store_email_template', {
     
